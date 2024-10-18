@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from dataset import CarvanaDataset
 from model import UNET
+from utils.metrics import dice_score
 from utils.transforms import get_train_transforms
 from utils.constants import (
     N_EPOCHS,
@@ -27,9 +28,10 @@ def train_step(
         device: str,
         scaler: torch.amp.GradScaler,
         scheduler: lr_scheduler.LRScheduler = None
-) -> float:
+) -> tuple[float, float]:
 
     running_loss = 0.0
+    running_dice = 0.0
     n_batches = len(dataloader)
     progress = tqdm(enumerate(dataloader), total=n_batches, desc="Training", unit="batch")
 
@@ -38,8 +40,9 @@ def train_step(
         imgs, masks = imgs.to(device), masks.to(device)
 
         with torch.autocast(device):
-            output = model(imgs)
-            loss = criterion(output, masks)
+            preds = model(imgs)
+            loss = criterion(preds, masks)
+            dice = dice_score(preds, masks)
 
         optimizer.zero_grad(set_to_none=True)
         scaler.scale(loss).backward()
@@ -48,13 +51,18 @@ def train_step(
         scheduler.step() if scheduler else None
 
         running_loss += loss.item()
-        progress.set_postfix(loss=f"{running_loss/(i+1):.4f}")
+        running_dice += dice.item()
+        progress.set_postfix({
+            "loss": f"{running_loss/(i+1):.4f}",
+            "dice": f"{running_dice/(i+1):.4f}",
+        })
 
-    return running_loss / n_batches
+    return running_loss / n_batches, running_dice / n_batches
 
 
-def val_step(model, dataloader, criterion, device) -> float:
+def val_step(model, dataloader, criterion, device) -> tuple[float, float]:
     running_loss = 0.0
+    running_dice = 0.0
     n_batches = len(dataloader)
     progress = tqdm(enumerate(dataloader), total=n_batches, desc="Validating", unit="batch")
 
@@ -62,12 +70,17 @@ def val_step(model, dataloader, criterion, device) -> float:
     with torch.no_grad():
         for i, (imgs, masks) in progress:
             imgs, masks = imgs.to(device), masks.to(device)
-            output = model(imgs)
-            loss = criterion(output, masks)
+            pred = model(imgs)
+            loss = criterion(pred, masks)
+            dice = dice_score(pred, masks)
             running_loss += loss.item()
-            progress.set_postfix(loss=f"{running_loss/(i+1):.4f}")
+            running_dice += dice.item()
+            progress.set_postfix({
+                "loss": f"{running_loss/(i+1):.4f}",
+                "dice": f"{running_dice/(i+1):.4f}",
+            })
 
-    return running_loss / n_batches
+    return running_loss / n_batches, running_dice / n_batches
 
 
 def main():
@@ -90,12 +103,13 @@ def main():
     for epoch in range(N_EPOCHS):
         print(f"\nEpoch [{epoch + 1}/{N_EPOCHS}]\n" + "-" * 30)
 
-        train_loss = train_step(model, train_loader, optimizer, criterion, DEVICE, scaler)
-        val_loss = val_step(model, val_loader, criterion, DEVICE)
+        train_loss, train_dice = train_step(model, train_loader, optimizer, criterion, DEVICE, scaler)
+        val_loss, val_dice = val_step(model, val_loader, criterion, DEVICE)
         scheduler.step(val_loss)
 
         print(f"lr: {scheduler.get_last_lr()[0]}")
-        print(f"Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+        print(f"Train Loss: {train_loss:.4f} - Train Dice: {train_dice:.4f}")
+        print(f"Val Loss: {val_loss:.4f} - Val Dice: {val_dice:.4f}")
 
     os.makedirs("models", exist_ok=True)
     torch.save(model.state_dict(), "models/UNET_caranvas.pth")

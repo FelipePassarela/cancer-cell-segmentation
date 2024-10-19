@@ -1,8 +1,7 @@
 import torch
 
-
 N_EPOCHS = 10
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 3e-3
 BATCH_SIZE = 8
 IMAGE_SIZE = (256, 256)  # Necessary for avoiding OOM errors
 NUM_WORKERS = 8

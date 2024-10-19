@@ -1,22 +1,17 @@
 import os
 from typing import Tuple
-from matplotlib import pyplot as plt
-from PIL import Image
 
 import torch
-from torchvision import tv_tensors
+from PIL import Image
+from matplotlib import pyplot as plt
 from torch.utils.data import Dataset, DataLoader
+from torchvision import tv_tensors
 
-from utils.transforms import get_train_transforms
+from dataset.transforms import get_train_transforms
 
 
 class CarvanaDataset(Dataset):
-    def __init__(
-        self,
-        root: str,
-        train: bool,
-        transforms: callable = None,
-    ) -> None:
+    def __init__(self, root: str, train: bool, transforms: callable = None) -> None:
         super(CarvanaDataset, self).__init__()
 
         self.root = root

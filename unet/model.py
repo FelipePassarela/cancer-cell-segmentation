@@ -1,13 +1,13 @@
-from typing import Union, Any, Dict
-from PIL import Image
-import numpy as np
+from typing import Any
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms.functional as TF
+from PIL import Image
 
-from utils.transforms import get_val_transforms
+from dataset.transforms import get_val_transforms
 
 
 class DoubleConv(nn.Module):
@@ -29,9 +29,9 @@ class DoubleConv(nn.Module):
         return self.convs(x)
 
 
-class UNET(nn.Module):
+class UNet(nn.Module):
     def __init__(self, in_channels=3, out_channels=1, featmaps=None):
-        super(UNET, self).__init__()
+        super(UNet, self).__init__()
 
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -75,31 +75,29 @@ class UNET(nn.Module):
         return self.final_conv(x)
 
     def predict(
-        self,
-        image: Union[np.ndarray, Image.Image],
-        device: str = None,
-    ) -> Dict[str, Any]:
+            self,
+            img: np.ndarray | Image.Image | torch.Tensor | list,
+            device: str = None,
+    ) -> dict[str, Any]:
         """
         Predicts the mask for the input image
 
-        :param image: input image
-        :type image: Union[np.ndarray, Image.Image]
+        :param img: input image
+        :type img: np.ndarray | Image.Image | torch.Tensor | list
         :param device: device to run the model on
         :type device: str
         :return: dictionary containing the predicted mask, input image, and logits
-        :rtype: Dict[str, Any]
+        :rtype: dict[str, Any]
         """
 
         if device is None:
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.to(device)
 
-        if isinstance(image, np.ndarray):
-            image = TF.to_tensor(image)
-        elif isinstance(image, Image.Image):
-            image = TF.to_tensor(image)
-
-        img_transformed = get_val_transforms()(image).to(device)
+        img = TF.to_tensor(img) if not isinstance(img, torch.Tensor) else img
+        img_transformed = get_val_transforms()(img).to(device)
+        if len(img_transformed.shape) == 3:
+            img_transformed = img_transformed.unsqueeze(0)
 
         self.eval()
         with torch.no_grad():
@@ -122,7 +120,7 @@ def test_model():
     x = torch.rand((3, 3, 801, 600))
     out_shape_must_be = torch.Size([3, 1, 801, 600])
 
-    model = UNET(3, 1)
+    model = UNet(3, 1)
     pred = model(x)
 
     print(pred)

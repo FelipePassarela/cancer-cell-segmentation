@@ -5,7 +5,7 @@ import torchvision.transforms.v2 as transforms
 from torchvision import tv_tensors
 from torchvision.transforms.functional import InterpolationMode
 
-from .constants import IMAGE_SIZE
+from utils.constants import IMAGE_SIZE
 
 
 def clamp_image(x, image: tv_tensors.Image = None):

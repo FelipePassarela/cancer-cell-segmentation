@@ -1,15 +1,39 @@
 import torch
+from torch import nn
 
 
-def dice_score(pred, target):
-    pred = (torch.sigmoid(pred) > 0.5).float()
+class BCEDiceLoss(nn.Module):
+    def __init__(self,
+                 bce_weight=0.5,
+                 dice_weight=0.5,
+                 smooth=1.0,
+                 eps=1e-7):
 
-    pred = pred.view(-1)
-    target = target.view(-1)
+        super(BCEDiceLoss, self).__init__()
+        self.bce_weight = bce_weight
+        self.dice_weight = dice_weight
+        self.smooth = smooth
+        self.eps = eps
 
-    intersection = (pred * target).sum()
-    union = pred.sum() + target.sum()
+        self.bce = nn.BCEWithLogitsLoss()
 
-    if union == 0:
-        return 1.0 if intersection == 0 else 0.0
-    return (2.0 * intersection) / union
+    def forward(self, preds, targets):
+        if preds.dim() > 2:
+            preds = preds.view(preds.size(0), -1)
+            targets = targets.view(targets.size(0), -1)
+
+        bce_loss = self.bce(preds, targets)
+
+        preds_sigmoid = torch.sigmoid(preds)
+        intersection = (preds_sigmoid * targets).sum(dim=1)
+        union = (preds_sigmoid.sum(dim=1) + targets.sum(dim=1))
+
+        dice_loss = 1.0 - (2.0 * intersection + self.smooth) / (union + self.smooth + self.eps)
+        dice_loss = dice_loss.mean()
+        combined_loss = (self.bce_weight * bce_loss + self.dice_weight * dice_loss)
+
+        return {
+            'combined': combined_loss,
+            'bce': bce_loss,
+            'dice': dice_loss
+        }

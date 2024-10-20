@@ -19,7 +19,7 @@ from utils.constants import (
     DEVICE,
     SEED
 )
-from utils.metrics import dice_score
+from utils.metrics import BCEDiceLoss
 
 
 def set_seed(seed: int = SEED):
@@ -53,15 +53,15 @@ def train_step(
         with torch.autocast(device):
             preds = model(imgs)
             loss = criterion(preds, masks)
-            dice = dice_score(preds, masks)
+            dice = loss["dice"]
 
         optimizer.zero_grad(set_to_none=True)
-        scaler.scale(loss).backward()
+        scaler.scale(loss["combined"]).backward()
         scaler.step(optimizer)
         scaler.update()
         scheduler.step() if scheduler else None
 
-        running_loss += loss.item()
+        running_loss += loss["combined"].item()
         running_dice += dice.item()
         progress.set_postfix({
             "loss": f"{running_loss / (i + 1):.4f}",
@@ -83,9 +83,8 @@ def eval_step(model, dataloader, criterion, device, desc="Validating") -> tuple[
             imgs, masks = imgs.to(device), masks.to(device)
             pred = model(imgs)
             loss = criterion(pred, masks)
-            dice = dice_score(pred, masks)
-            running_loss += loss.item()
-            running_dice += dice.item()
+            running_loss += loss["combined"].item()
+            running_dice += loss["dice"].item()
             progress.set_postfix({
                 "loss": f"{running_loss / (i + 1):.4f}",
                 "dice": f"{running_dice / (i + 1):.4f}",
@@ -114,7 +113,7 @@ def train():
         steps_per_epoch=len(train_loader),
         epochs=N_EPOCHS
     )
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = BCEDiceLoss()
     scaler = torch.amp.GradScaler()
 
     for epoch in range(N_EPOCHS):

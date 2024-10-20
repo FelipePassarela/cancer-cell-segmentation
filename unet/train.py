@@ -1,23 +1,35 @@
 import os
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from dataset.carvana_dataset import CarvanaDataset
-from dataset.transforms import get_train_transforms
+from dataset.image_dataset import ImageDataset
+from dataset.transforms import get_train_transforms, get_val_transforms
 from unet.model import UNet
 from utils.constants import (
     N_EPOCHS,
     LEARNING_RATE,
     BATCH_SIZE,
     NUM_WORKERS,
-    DEVICE
+    DEVICE,
+    SEED
 )
 from utils.metrics import dice_score
+
+
+def set_seed(seed: int = SEED):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    print(f"Seed set to {seed}")
 
 
 def train_step(
@@ -59,11 +71,11 @@ def train_step(
     return running_loss / n_batches, running_dice / n_batches
 
 
-def val_step(model, dataloader, criterion, device) -> tuple[float, float]:
+def eval_step(model, dataloader, criterion, device, desc="Validating") -> tuple[float, float]:
     running_loss = 0.0
     running_dice = 0.0
     n_batches = len(dataloader)
-    progress = tqdm(enumerate(dataloader), total=n_batches, desc="Validating", unit="batch")
+    progress = tqdm(enumerate(dataloader), total=n_batches, desc=desc, unit="batch")
 
     model.eval()
     with torch.no_grad():
@@ -82,16 +94,17 @@ def val_step(model, dataloader, criterion, device) -> tuple[float, float]:
     return running_loss / n_batches, running_dice / n_batches
 
 
-def main():
+def train():
+    set_seed()
     print(f"Using device: {DEVICE}")
 
-    full_set = CarvanaDataset("data", True, transforms=get_train_transforms())
-    train_size = int(0.8 * len(full_set))
-    test_size = len(full_set) - train_size
-    train_set, test_set = random_split(full_set, [train_size, test_size])
+    train_set = ImageDataset("../data/train", transforms=get_train_transforms())
+    val_set = ImageDataset("../data/val", transforms=get_val_transforms())
+    test_set = ImageDataset("../data/test", transforms=get_val_transforms())
 
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
-    val_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
+    val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
+    test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
     model = UNet(3, 1).to(DEVICE)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
@@ -108,15 +121,19 @@ def main():
         print(f"\nEpoch [{epoch + 1}/{N_EPOCHS}]\n" + "-" * 30)
 
         train_loss, train_dice = train_step(model, train_loader, optimizer, criterion, DEVICE, scaler, scheduler)
-        val_loss, val_dice = val_step(model, val_loader, criterion, DEVICE)
+        val_loss, val_dice = eval_step(model, val_loader, criterion, DEVICE)
 
         print(f"lr: {scheduler.get_last_lr()[0]:.6f}")
         print(f"Train Loss: {train_loss:.4f} - Train Dice: {train_dice:.4f}")
         print(f"Val Loss: {val_loss:.4f} - Val Dice: {val_dice:.4f}")
+    print("-" * 30 + "\nTraining complete\n" + "-" * 30)
+
+    test_loss, test_dice = eval_step(model, test_loader, criterion, DEVICE, desc="Testing")
+    print(f"Test Loss: {test_loss:.4f} - Test Dice: {test_dice:.4f}")
 
     os.makedirs("../models", exist_ok=True)
-    torch.save(model.state_dict(), "../models/UNet_carvana.pth")
+    torch.save(model.state_dict(), "../models/UNet.pth")
 
 
 if __name__ == "__main__":
-    main()
+    train()

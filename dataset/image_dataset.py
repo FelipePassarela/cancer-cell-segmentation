@@ -1,35 +1,38 @@
-import os
+from pathlib import Path
 from typing import Tuple
 
 import torch
-from PIL import Image
 from matplotlib import pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torchvision import tv_tensors
+from torchvision.io import decode_image
 
 from dataset.transforms import get_train_transforms
 
 
-class CarvanaDataset(Dataset):
-    def __init__(self, root: str, train: bool, transforms: callable = None) -> None:
-        super(CarvanaDataset, self).__init__()
+class ImageDataset(Dataset):
+    def __init__(self, root: str, transforms: callable = None) -> None:
+        super(ImageDataset, self).__init__()
 
-        self.root = root
+        self.root = Path(root)
         self.transforms = transforms
+        self.items = [item for item in self.root.iterdir() if item.is_dir()]
 
-        self.dirs = "train_images", "train_masks" if train else "val_images", "val_masks"
-        self.images = os.listdir(os.path.join(self.root, self.dirs[0]))
-        self.masks = os.listdir(os.path.join(self.root, self.dirs[1]))
+        self.images = [item / "images" / f"{item.name}.png" for item in self.items]
+        self.masks = [item / "masks" for item in self.items]
+        assert len(self.images) == len(self.masks)
 
     def __len__(self) -> int:
-        return len(self.images)
+        return len(self.items)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        img_path = os.path.join(self.root, self.dirs[0], self.images[idx])
-        mask_path = os.path.join(self.root, self.dirs[1], self.masks[idx])
+        img_path = self.images[idx]
+        masks_path = list(self.masks[idx].iterdir())
 
-        img = Image.open(img_path).convert("RGB")
-        mask = Image.open(mask_path).convert("L")
+        img = decode_image(img_path.as_posix(), mode="RGB")
+        mask = [decode_image(mask_path.as_posix(), mode="GRAY") for mask_path in masks_path]
+        mask = self.join_masks(mask)
+
         with tv_tensors.set_return_type("TVTensor"):
             img = tv_tensors.Image(img)
             mask = tv_tensors.Mask(mask) / 255.0
@@ -39,12 +42,19 @@ class CarvanaDataset(Dataset):
 
         return img, mask
 
+    @staticmethod
+    def join_masks(masks: list) -> torch.Tensor:
+        """ Combines a list of masks into a single mask """
+        masks = torch.stack(masks, dim=0)
+        masks = masks.sum(dim=0)
+        return masks
+
 
 def test_dataset():
-    dataset = CarvanaDataset("data", True, transforms=get_train_transforms())
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True, num_workers=2)
+    dataset = ImageDataset("../data/train", transforms=get_train_transforms())
+    dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
 
-    for img, mask in dataloader:
+    for i, (img, mask) in enumerate(dataloader):
         print(img, img.shape, img.dtype)
         print(mask, mask.shape, mask.unique(), mask.dtype)
 
@@ -68,7 +78,9 @@ def test_dataset():
 
         plt.tight_layout()
         plt.show()
-        break
+
+        if i == 5:
+            break
 
 
 if __name__ == "__main__":

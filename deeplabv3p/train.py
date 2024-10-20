@@ -210,15 +210,15 @@ def train():
             'n_epochs': N_EPOCHS,
         },
         {
-            'hparam/epoch_train_loss': train_hist["loss"].mean(),
-            'hparam/epoch_train_dice': train_hist["dice"].mean(),
-            'hparam/epoch_train_hausdorff': train_hist["hausdorff"].mean(),
-            'hparam/epoch_val_loss': val_hist["loss"].mean(),
-            'hparam/epoch_val_dice': val_hist["dice"].mean(),
-            'hparam/epoch_val_hausdorff': val_hist["hausdorff"].mean(),
-            'hparam/epoch_test_loss': test_loss,
-            'hparam/epoch_test_dice': test_dice,
-            'hparam/epoch_test_hausdorff': test_hist["hausdorff"].mean(),
+            'epoch_train_loss': train_hist["loss"].mean(),
+            'epoch_train_dice': train_hist["dice"].mean(),
+            'epoch_train_hausdorff': train_hist["hausdorff"].mean(),
+            'epoch_val_loss': val_hist["loss"].mean(),
+            'epoch_val_dice': val_hist["dice"].mean(),
+            'epoch_val_hausdorff': val_hist["hausdorff"].mean(),
+            'epoch_test_loss': test_loss,
+            'epoch_test_dice': test_dice,
+            'epoch_test_hausdorff': test_hist["hausdorff"].mean(),
         }
     )
 

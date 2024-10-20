@@ -214,7 +214,15 @@ def train():
             'n_epochs': N_EPOCHS,
         },
         {
-            'final_val_loss': val_hist["loss"][-1],
+            'train_loss': train_hist["loss"].mean(),
+            'train_dice': train_hist["dice"].mean(),
+            'train_hausdorff': train_hist["hausdorff"].mean(),
+            'val_loss': val_hist["loss"].mean(),
+            'val_dice': val_hist["dice"].mean(),
+            'val_hausdorff': val_hist["hausdorff"].mean(),
+            'test_loss': test_loss,
+            'test_dice': test_dice,
+            'test_hausdorff': test_hist["hausdorff"].mean(),
         }
     )
 

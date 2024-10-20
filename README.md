@@ -1,3 +1,3 @@
-# UNet Cars Segmentation
+# Cancer Cell Segmentation
 
-![image](https://github.com/user-attachments/assets/f14d5b7d-4469-4b25-b8c8-5c361d210f8a)
+![image](https://github.com/user-attachments/assets/6c4a728f-9ed2-4061-9f9f-616a15489556)

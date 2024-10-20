@@ -3,12 +3,15 @@ import argparse
 import torch
 from PIL import Image
 
-from unet.model import UNet
+from deeplabv3p.model import DeepLabV3Plus
 
 
 def main(args):
-    model = UNet(3, 1)
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    model = DeepLabV3Plus(3, 1)
     model.load_state_dict(torch.load(args.model_path, weights_only=True))
+    model.to(device)
     model.eval()
 
     img = Image.open(args.img_path).convert("RGB")

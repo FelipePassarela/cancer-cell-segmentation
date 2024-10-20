@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from dataset.image_dataset import ImageDataset
 from dataset.transforms import get_train_transforms, get_val_transforms
-from unet.model import UNet
+from deeplabv3p.model import DeepLabV3Plus
 from utils.constants import (
     N_EPOCHS,
     LEARNING_RATE,
@@ -69,7 +69,7 @@ def train_step(
             writer.add_scalar("Dice/train", history["dice"][i], global_step)
             writer.add_scalar("Hausdorff/train", history["hausdorff"][i], global_step)
             writer.add_scalar("LearningRate/train", last_lr, global_step)
-            writer.add_histogram("Model/final_conv.weight", model.final_conv.weight, global_step)
+            # writer.add_histogram("Model/final_conv.weight", model.final_conv.weight, global_step)
 
         running_loss += history["loss"][i]
         running_dice += history["dice"][i]
@@ -139,7 +139,7 @@ def train():
     set_seed()
     print(f"Using device: {DEVICE}")
 
-    model_name = "UNet_" + time.strftime("%d%m%Y-%H%M%S")
+    model_name = "DeepLabV3p_" + time.strftime("%d%m%Y-%H%M%S")
     log_dir = os.path.join("..", "logs", model_name)
     writer = SummaryWriter(log_dir=log_dir)
     print(f"Tensorboard logs at: {log_dir}")
@@ -152,7 +152,7 @@ def train():
     val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
-    model = UNet(3, 1).to(DEVICE)
+    model = DeepLabV3Plus(3, 1).to(DEVICE)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     scheduler = lr_scheduler.OneCycleLR(
         optimizer,
@@ -214,7 +214,15 @@ def train():
             'n_epochs': N_EPOCHS,
         },
         {
-            'final_val_loss': val_hist["loss"][-1],
+            'train_loss': train_hist["loss"].mean(),
+            'train_dice': train_hist["dice"].mean(),
+            'train_hausdorff': train_hist["hausdorff"].mean(),
+            'val_loss': val_hist["loss"].mean(),
+            'val_dice': val_hist["dice"].mean(),
+            'val_hausdorff': val_hist["hausdorff"].mean(),
+            'test_loss': test_loss,
+            'test_dice': test_dice,
+            'test_hausdorff': test_hist["hausdorff"].mean(),
         }
     )
 

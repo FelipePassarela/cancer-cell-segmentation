@@ -1,13 +1,15 @@
+import time
 from pathlib import Path
 from typing import Tuple
 
 import torch
-from matplotlib import pyplot as plt
+import torchvision
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import tv_tensors
 from torchvision.io import decode_image
 
-from dataset.transforms import get_train_transforms
+from dataset.transforms import get_val_transforms
 
 
 class ImageDataset(Dataset):
@@ -51,36 +53,23 @@ class ImageDataset(Dataset):
 
 
 def test_dataset():
-    dataset = ImageDataset("../data/train", transforms=get_train_transforms())
-    dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+    batch_size = 100
 
-    for i, (img, mask) in enumerate(dataloader):
-        print(img, img.shape, img.dtype)
-        print(mask, mask.shape, mask.unique(), mask.dtype)
+    writer = SummaryWriter(log_dir="../logs/dataset_images" + time.strftime("%d%m%Y-%H%M%S"))
+    dataset = ImageDataset("../data/train", transforms=get_val_transforms())
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-        fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+    images, labels = next(iter(dataloader))
+    features = images.view(batch_size, -1)
+    writer.add_embedding(features, label_img=images)
 
-        axs[0, 0].imshow(img[0].permute(1, 2, 0))
-        axs[0, 0].set_title("Image 1")
-        axs[0, 0].axis("off")
+    img_grid = torchvision.utils.make_grid(images)
+    mask_grid = torchvision.utils.make_grid(labels)
+    writer.add_image("images", img_grid)
+    writer.add_image("masks", mask_grid)
 
-        axs[0, 1].imshow(mask[0].squeeze(), cmap="gray")
-        axs[0, 1].set_title("Mask 1")
-        axs[0, 1].axis("off")
-
-        axs[1, 0].imshow(img[1].permute(1, 2, 0))
-        axs[1, 0].set_title("Image 2")
-        axs[1, 0].axis("off")
-
-        axs[1, 1].imshow(mask[1].squeeze(), cmap="gray")
-        axs[1, 1].set_title("Mask 2")
-        axs[1, 1].axis("off")
-
-        plt.tight_layout()
-        plt.show()
-
-        if i == 5:
-            break
+    writer.flush()
+    writer.close()
 
 
 if __name__ == "__main__":

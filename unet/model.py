@@ -62,7 +62,7 @@ class UNet(nn.Module):
         for i in range(0, len(self.ups), 2):
             x = self.ups[i](x)
             skips = skip_connections[i // 2]
-            if x.shape != skips.shape:
+            if not torch.is_same_size(x, skips):
                 x = TF.resize(x, skips.shape[2:])  # [..., H, W] skip's shape
             x = torch.cat([x, skips], dim=1)
             x = self.ups[i + 1](x)

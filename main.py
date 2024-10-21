@@ -3,7 +3,7 @@ import argparse
 import torch
 from PIL import Image
 
-from unet.model import UNet
+from models.unet import UNet
 
 
 def main(args):

@@ -12,14 +12,14 @@ from tqdm import tqdm
 
 from dataset.image_dataset import ImageDataset
 from dataset.transforms import get_train_transforms, get_val_transforms
-from unet.model import UNet
+from models.deeplab_v3p import DeepLabV3Plus
+from models.unet import UNet
 from utils.constants import (
     N_EPOCHS,
     LEARNING_RATE,
     BATCH_SIZE,
     NUM_WORKERS,
     DEVICE,
-    IMAGE_SIZE,
     set_seed
 )
 from utils.metrics import BCEDiceLoss, hausdorff_distance, dice_score
@@ -69,7 +69,6 @@ def train_step(
             writer.add_scalar("Dice/train", history["dice"][i], global_step)
             writer.add_scalar("Hausdorff/train", history["hausdorff"][i], global_step)
             writer.add_scalar("LearningRate/train", last_lr, global_step)
-            writer.add_histogram("Model/final_conv.weight", model.final_conv.weight, global_step)
 
         running_loss += history["loss"][i]
         running_dice += history["dice"][i]
@@ -135,12 +134,15 @@ def eval_step(
     return history
 
 
-def train():
+def train(model: nn.Module):
     set_seed()
+    model.to(DEVICE)
     print(f"Using device: {DEVICE}")
 
-    model_name = "UNet_" + time.strftime("%d%m%Y-%H%M%S")
-    log_dir = os.path.join("..", "logs", model_name)
+    model_name = type(model).__name__
+    model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S_")
+
+    log_dir = os.path.join("..", "logs", model_name_ext)
     writer = SummaryWriter(log_dir=log_dir)
     print(f"Tensorboard logs at: {log_dir}")
 
@@ -152,7 +154,6 @@ def train():
     val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
     test_loader = DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
-    model = UNet(3, 1).to(DEVICE)
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
     scheduler = lr_scheduler.OneCycleLR(
         optimizer,
@@ -163,12 +164,10 @@ def train():
     criterion = BCEDiceLoss()
     scaler = torch.amp.GradScaler()
 
-    dummy_input = torch.rand((1, 3, *IMAGE_SIZE)).to(DEVICE)
-    writer.add_graph(model, dummy_input)
     train_hist, val_hist = {}, {}
-
     for epoch in range(N_EPOCHS):
-        print(f"\nEpoch [{epoch + 1}/{N_EPOCHS}]\n" + "-" * 30)
+        print(f"\nEpoch [{epoch + 1}/{N_EPOCHS}] - {model_name}")
+        print("-" * 30)
 
         train_hist = train_step(
             model,
@@ -206,7 +205,6 @@ def train():
     test_dice = test_hist["dice"].mean()
     print(f"Test Loss: {test_loss:.4f} - Test Dice: {test_dice:.4f}")
 
-    writer.add_graph(model, dummy_input)
     writer.add_hparams(
         {
             'learning_rate': LEARNING_RATE,
@@ -214,26 +212,27 @@ def train():
             'n_epochs': N_EPOCHS,
         },
         {
-            'train_loss': train_hist["loss"].mean(),
-            'train_dice': train_hist["dice"].mean(),
-            'train_hausdorff': train_hist["hausdorff"].mean(),
-            'val_loss': val_hist["loss"].mean(),
-            'val_dice': val_hist["dice"].mean(),
-            'val_hausdorff': val_hist["hausdorff"].mean(),
-            'test_loss': test_loss,
-            'test_dice': test_dice,
-            'test_hausdorff': test_hist["hausdorff"].mean(),
+            'hparams/train_loss': train_hist["loss"].mean(),
+            'hparams/train_dice': train_hist["dice"].mean(),
+            'hparams/train_hausdorff': train_hist["hausdorff"].mean(),
+            'hparams/val_loss': val_hist["loss"].mean(),
+            'hparams/val_dice': val_hist["dice"].mean(),
+            'hparams/val_hausdorff': val_hist["hausdorff"].mean(),
+            'hparams/test_loss': test_loss,
+            'hparams/test_dice': test_dice,
+            'hparams/test_hausdorff': test_hist["hausdorff"].mean(),
         }
     )
 
-    model_path = os.path.join("..", "models", f"{model_name}_dice{int(test_dice * 100):}.pth")
+    model_path = os.path.join("..", "bin", f"{model_name_ext}dice{int(test_dice * 100):}.pth")
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     torch.save(model.state_dict(), model_path)
-    print(f"Model saved at: {model_path}")
+    print(f"Model saved at: {model_path}\n\n")
 
     writer.flush()
     writer.close()
 
 
 if __name__ == "__main__":
-    train()
+    train(UNet(3, 1))
+    train(DeepLabV3Plus(3, 1))

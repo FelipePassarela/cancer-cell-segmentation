@@ -205,23 +205,27 @@ def train(model: nn.Module):
     test_dice = test_hist["dice"].mean()
     print(f"Test Loss: {test_loss:.4f} - Test Dice: {test_dice:.4f}")
 
+    # For some reason, the metrics dict are not being shown in tensorboard,
+    # so we moved them to the hparams dict.
     writer.add_hparams(
         {
-            'learning_rate': LEARNING_RATE,
-            'batch_size': BATCH_SIZE,
-            'n_epochs': N_EPOCHS,
+            'hparam/hp_optimizer': type(optimizer).__name__,
+            'hparam/hp_scheduler': type(scheduler).__name__,
+            'hparam/hp_learning_rate': LEARNING_RATE,
+            'hparam/hp_batch_size': BATCH_SIZE,
+            'hparam/hp_n_epochs': N_EPOCHS,
+
+            'hparam/m_train_loss': train_hist["loss"].mean(),
+            'hparam/m_train_dice': train_hist["dice"].mean(),
+            'hparam/m_train_hausdorff': train_hist["hausdorff"].mean(),
+            'hparam/m_val_loss': val_hist["loss"].mean(),
+            'hparam/m_val_dice': val_hist["dice"].mean(),
+            'hparam/m_val_hausdorff': val_hist["hausdorff"].mean(),
+            'hparam/m_test_loss': test_loss,
+            'hparam/m_test_dice': test_dice,
+            'hparam/m_test_hausdorff': test_hist["hausdorff"].mean(),
         },
-        {
-            'hparams/train_loss': train_hist["loss"].mean(),
-            'hparams/train_dice': train_hist["dice"].mean(),
-            'hparams/train_hausdorff': train_hist["hausdorff"].mean(),
-            'hparams/val_loss': val_hist["loss"].mean(),
-            'hparams/val_dice': val_hist["dice"].mean(),
-            'hparams/val_hausdorff': val_hist["hausdorff"].mean(),
-            'hparams/test_loss': test_loss,
-            'hparams/test_dice': test_dice,
-            'hparams/test_hausdorff': test_hist["hausdorff"].mean(),
-        }
+        {}
     )
 
     model_path = os.path.join("..", "bin", f"{model_name_ext}dice{int(test_dice * 100):}.pth")

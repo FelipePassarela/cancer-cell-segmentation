@@ -1,15 +1,15 @@
 import os
 import shutil
-import yaml
 
+import yaml
 from sklearn.model_selection import train_test_split
 
-from utils.utils import set_seed
 
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
 SEED = config["SEED"]
+
 
 def split_data(root: str, seed=SEED):
     images = os.listdir(root)

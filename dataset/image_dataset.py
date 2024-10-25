@@ -1,6 +1,7 @@
 import time
 from pathlib import Path
 from typing import Tuple
+import yaml
 
 import torch
 import torchvision
@@ -11,6 +12,8 @@ from torchvision.io import decode_image
 
 from dataset.transforms import get_val_transforms
 
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
 class ImageDataset(Dataset):
     def __init__(self, root: str, transforms: callable = None) -> None:
@@ -56,7 +59,7 @@ def test_dataset():
     batch_size = 100
 
     writer = SummaryWriter(log_dir="../logs/dataset_images" + time.strftime("%d%m%Y-%H%M%S"))
-    dataset = ImageDataset("../data/train", transforms=get_val_transforms())
+    dataset = ImageDataset(config["TRAIN_DATA_PATH"], transforms=get_val_transforms())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images, labels = next(iter(dataloader))

@@ -5,3 +5,9 @@ IMAGE_SIZE: [256, 256]
 NUM_WORKERS: 0
 SEED: 42
 DEVICE: "cuda" if torch.cuda.is_available() else "cpu"
+
+TRAIN_DIR: "./data/train"
+VAL_DIR: "./data/val"
+TEST_DIR: "./data/test"
+LOG_DIR: "./logs"
+MODEL_SAVE_DIR: "./bin"

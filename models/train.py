@@ -144,13 +144,13 @@ def train(model: nn.Module):
     model_name = type(model).__name__
     model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S_")
 
-    log_dir = os.path.join("..", "logs", model_name_ext)
+    log_dir = config["LOG_DIR"]
     writer = SummaryWriter(log_dir=log_dir)
     print(f"Tensorboard logs at: {log_dir}")
 
-    train_set = ImageDataset("../data/train", transforms=get_train_transforms())
-    val_set = ImageDataset("../data/val", transforms=get_val_transforms())
-    test_set = ImageDataset("../data/test", transforms=get_val_transforms())
+    train_set = ImageDataset(config["TRAIN_DIR"], transforms=get_train_transforms())
+    val_set = ImageDataset(config["VAL_DIR"], transforms=get_val_transforms())
+    test_set = ImageDataset(config["TEST_DIR"], transforms=get_val_transforms())
 
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
@@ -230,7 +230,7 @@ def train(model: nn.Module):
         {}
     )
 
-    model_path = os.path.join("..", "bin", f"{model_name_ext}dice{int(test_dice * 100):}.pth")
+    model_path = os.path.join(config["MODEL_SAVE_DIR"], f"{model_name_ext}dice{int(test_dice * 100):}.pth")
     os.makedirs(os.path.dirname(model_path), exist_ok=True)
     torch.save(model.state_dict(), model_path)
     print(f"Model saved at: {model_path}\n\n")

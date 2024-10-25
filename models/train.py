@@ -1,5 +1,6 @@
 import os
 import time
+import yaml
 
 import numpy as np
 import torch
@@ -14,16 +15,17 @@ from dataset.image_dataset import ImageDataset
 from dataset.transforms import get_train_transforms, get_val_transforms
 from models.deeplab_v3p import DeepLabV3Plus
 from models.unet import UNet
-from utils.constants import (
-    N_EPOCHS,
-    LEARNING_RATE,
-    BATCH_SIZE,
-    NUM_WORKERS,
-    DEVICE,
-    set_seed
-)
+from utils.utils import set_seed
 from utils.metrics import BCEDiceLoss, hausdorff_distance, dice_score
 
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
+
+N_EPOCHS = config["N_EPOCHS"]
+LEARNING_RATE = config["LEARNING_RATE"]
+BATCH_SIZE = config["BATCH_SIZE"]
+NUM_WORKERS = config["NUM_WORKERS"]
+DEVICE = config["DEVICE"]
 
 def train_step(
         model: nn.Module,

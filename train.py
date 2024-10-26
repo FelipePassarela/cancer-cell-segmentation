@@ -217,7 +217,7 @@ def train(model: nn.Module):
                 "val_dice": val_dice,
                 "val_hausdorff": val_hausdorff,
             }
-            best_model_path = os.path.join("..", "bin", f"{model_name_ext}.pth")
+            best_model_path = (Path(MODEL_SAVE_DIR) / f"{model_name_ext}.pth").as_posix()
 
             os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
             torch.save(model.state_dict(), best_model_path)
@@ -261,11 +261,6 @@ def train(model: nn.Module):
         },
         {}
     )
-
-    model_dir = Path(MODEL_SAVE_DIR) / f"{model_name_ext}dice{int(test_dice * 100):}"
-    os.makedirs(os.path.dirname(model_dir), exist_ok=True)
-    torch.save(model.state_dict(), model_dir)
-    print(f"Model saved at: {model_dir}\n\n")
 
     writer.flush()
     writer.close()

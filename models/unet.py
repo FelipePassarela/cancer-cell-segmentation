@@ -46,7 +46,11 @@ class UNet(nn.Module):
             in_channels = feats
 
         for feats in reversed(self.featmaps):
-            self.ups.append(nn.ConvTranspose2d(feats * 2, feats, 2, stride=2))
+            self.ups.append(nn.Sequential(
+                nn.ConvTranspose2d(feats * 2, feats, 2, stride=2),
+                nn.BatchNorm2d(feats),
+                nn.GELU(),
+            ))
             self.ups.append(DoubleConv(feats * 2, feats))
 
     def forward(self, x):

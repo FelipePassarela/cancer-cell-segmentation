@@ -4,12 +4,19 @@ from typing import Tuple
 
 import torch
 import torchvision
+import yaml
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torchvision import tv_tensors
 from torchvision.io import decode_image
 
 from dataset.transforms import get_val_transforms
+
+
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
+
+LOG_DIR = config["LOG_DIR"]
 
 
 class ImageDataset(Dataset):
@@ -54,9 +61,10 @@ class ImageDataset(Dataset):
 
 def test_dataset():
     batch_size = 100
+    log_dir = Path(LOG_DIR) / "dataset_images" / time.strftime("%d%m%Y-%H%M%S")
 
-    writer = SummaryWriter(log_dir="../logs/dataset_images" + time.strftime("%d%m%Y-%H%M%S"))
-    dataset = ImageDataset("../data/train", transforms=get_val_transforms())
+    writer = SummaryWriter(log_dir=log_dir.as_posix())
+    dataset = ImageDataset(config["TRAIN_DATA_PATH"], transforms=get_val_transforms())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images, labels = next(iter(dataloader))

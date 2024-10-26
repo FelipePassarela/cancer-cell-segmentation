@@ -1,10 +1,12 @@
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import yaml
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -14,15 +16,24 @@ from dataset.image_dataset import ImageDataset
 from dataset.transforms import get_train_transforms, get_val_transforms
 from models.deeplab_v3p import DeepLabV3Plus
 from models.unet import UNet
-from utils.constants import (
-    N_EPOCHS,
-    LEARNING_RATE,
-    BATCH_SIZE,
-    NUM_WORKERS,
-    DEVICE,
-    set_seed
-)
 from utils.metrics import BCEDiceLoss, update_history
+from utils.utils import set_seed
+
+
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
+
+N_EPOCHS = config["N_EPOCHS"]
+LEARNING_RATE = config["LEARNING_RATE"]
+BATCH_SIZE = config["BATCH_SIZE"]
+NUM_WORKERS = config["NUM_WORKERS"]
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+TEST_DIR = config["TEST_DIR"]
+VAL_DIR = config["VAL_DIR"]
+TRAIN_DIR = config["TRAIN_DIR"]
+MODEL_SAVE_DIR = config["MODEL_SAVE_DIR"]
+LOG_DIR = config["LOG_DIR"]
 
 
 def train_step(
@@ -143,13 +154,13 @@ def train(model: nn.Module):
     model_name = type(model).__name__
     model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S")
 
-    log_dir = os.path.join("..", "logs", model_name_ext)
-    writer = SummaryWriter(log_dir=log_dir)
+    log_dir = Path(LOG_DIR) / model_name_ext
+    writer = SummaryWriter(log_dir=log_dir.as_posix())
     print(f"Tensorboard logs at: {log_dir}")
 
-    train_set = ImageDataset("../data/train", transforms=get_train_transforms())
-    val_set = ImageDataset("../data/val", transforms=get_val_transforms())
-    test_set = ImageDataset("../data/test", transforms=get_val_transforms())
+    train_set = ImageDataset(TRAIN_DIR, transforms=get_train_transforms())
+    val_set = ImageDataset(VAL_DIR, transforms=get_val_transforms())
+    test_set = ImageDataset(TEST_DIR, transforms=get_val_transforms())
 
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
@@ -206,7 +217,7 @@ def train(model: nn.Module):
                 "val_dice": val_dice,
                 "val_hausdorff": val_hausdorff,
             }
-            best_model_path = os.path.join("..", "bin", f"{model_name_ext}.pth")
+            best_model_path = (Path(MODEL_SAVE_DIR) / f"{model_name_ext}.pth").as_posix()
 
             os.makedirs(os.path.dirname(best_model_path), exist_ok=True)
             torch.save(model.state_dict(), best_model_path)

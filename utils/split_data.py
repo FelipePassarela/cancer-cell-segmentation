@@ -1,9 +1,14 @@
 import os
 import shutil
 
+import yaml
 from sklearn.model_selection import train_test_split
 
-from utils.constants import SEED
+
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
+
+SEED = config["SEED"]
 
 
 def split_data(root: str, seed=SEED):

@@ -63,3 +63,16 @@ def dice_score(pred, target):
     if union == 0:
         return 1.0 if intersection == 0 else 0.0
     return (2.0 * intersection) / union
+
+
+def update_history(history, running_metrics, masks, preds, loss, i):
+    running_metrics["loss"] += loss["combined"].item()
+    running_metrics["dice"] += dice_score(preds, masks)
+    running_metrics["hausdorff"] += hausdorff_distance(preds, masks)
+
+    # Update history with average metrics
+    history["loss"][i] = running_metrics["loss"] / (i + 1)
+    history["dice"][i] = running_metrics["dice"] / (i + 1)
+    history["hausdorff"][i] = running_metrics["hausdorff"] / (i + 1)
+
+    return history, running_metrics

@@ -1,5 +1,6 @@
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -27,6 +28,12 @@ LEARNING_RATE = config["LEARNING_RATE"]
 BATCH_SIZE = config["BATCH_SIZE"]
 NUM_WORKERS = config["NUM_WORKERS"]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+TEST_DIR = config["TEST_DIR"]
+VAL_DIR = config["VAL_DIR"]
+TRAIN_DIR = config["TRAIN_DIR"]
+MODEL_SAVE_DIR = config["MODEL_SAVE_DIR"]
+LOG_DIR = config["LOG_DIR"]
 
 
 def train_step(
@@ -146,13 +153,13 @@ def train(model: nn.Module):
     model_name = type(model).__name__
     model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S_")
 
-    log_dir = config["LOG_DIR"]
-    writer = SummaryWriter(log_dir=log_dir)
+    log_dir = Path(LOG_DIR) / model_name_ext
+    writer = SummaryWriter(log_dir=log_dir.as_posix())
     print(f"Tensorboard logs at: {log_dir}")
 
-    train_set = ImageDataset(config["TRAIN_DIR"], transforms=get_train_transforms())
-    val_set = ImageDataset(config["VAL_DIR"], transforms=get_val_transforms())
-    test_set = ImageDataset(config["TEST_DIR"], transforms=get_val_transforms())
+    train_set = ImageDataset(TRAIN_DIR, transforms=get_train_transforms())
+    val_set = ImageDataset(VAL_DIR, transforms=get_val_transforms())
+    test_set = ImageDataset(TEST_DIR, transforms=get_val_transforms())
 
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS, pin_memory=True)
     val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
@@ -232,10 +239,10 @@ def train(model: nn.Module):
         {}
     )
 
-    model_path = os.path.join(config["MODEL_SAVE_DIR"], f"{model_name_ext}dice{int(test_dice * 100):}.pth")
-    os.makedirs(os.path.dirname(model_path), exist_ok=True)
-    torch.save(model.state_dict(), model_path)
-    print(f"Model saved at: {model_path}\n\n")
+    model_dir = Path(MODEL_SAVE_DIR) / f"{model_name_ext}dice{int(test_dice * 100):}"
+    os.makedirs(os.path.dirname(model_dir), exist_ok=True)
+    torch.save(model.state_dict(), model_dir)
+    print(f"Model saved at: {model_dir}\n\n")
 
     writer.flush()
     writer.close()

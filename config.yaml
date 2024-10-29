@@ -10,3 +10,5 @@ VAL_DIR: "./data/val"
 TEST_DIR: "./data/test"
 LOG_DIR: "./logs"
 MODEL_SAVE_DIR: "./bin"
+
+WANDB_PROJECT: "cancer-cell-segmentation"

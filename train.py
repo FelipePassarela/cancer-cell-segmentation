@@ -7,9 +7,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import yaml
+import wandb
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 from dataset.image_dataset import ImageDataset
@@ -33,7 +33,9 @@ TEST_DIR = config["TEST_DIR"]
 VAL_DIR = config["VAL_DIR"]
 TRAIN_DIR = config["TRAIN_DIR"]
 MODEL_SAVE_DIR = config["MODEL_SAVE_DIR"]
-LOG_DIR = config["LOG_DIR"]
+WANDB_PROJECT = config["WANDB_PROJECT"]
+
+wandb.init(project=WANDB_PROJECT, config=config)
 
 
 def train_step(
@@ -44,8 +46,6 @@ def train_step(
         device: str,
         scaler: torch.amp.GradScaler,
         epoch: int = None,
-        writer: SummaryWriter = None,
-        scheduler: lr_scheduler.LRScheduler = None,
 ) -> dict[str, np.ndarray]:
     n_batches = len(dataloader)
     running_metrics = {
@@ -75,16 +75,12 @@ def train_step(
         scheduler.step() if scheduler else None
 
         history, running_metrics = update_history(history, running_metrics, masks, preds, loss, i)
-
-        if writer is not None:
-            global_step = epoch * n_batches + i
-            writer.add_scalar("Train/Loss", history["loss"][i], global_step)
-            writer.add_scalar("Train/Dice", history["dice"][i], global_step)
-            writer.add_scalar("Train/Hausdorff", history["hausdorff"][i], global_step)
-
-            if scheduler is not None:
-                last_lr = scheduler.get_last_lr()[0]
-                writer.add_scalar("Train/LearningRate", last_lr, global_step)
+        wandb.log({
+            "Train/Loss": history["loss"][i],
+            "Train/Dice": history["dice"][i],
+            "Train/Hausdorff": history["hausdorff"][i],
+            "Train/LearningRate": scheduler.get_last_lr()[0] if scheduler else None,
+        })
 
         progress.set_postfix({
             "loss": f"{history["loss"][i]:.4f}",
@@ -100,7 +96,6 @@ def eval_step(
         criterion: callable,
         device: str,
         epoch: int = None,
-        writer: SummaryWriter = None,
         test_set: bool = False,
 ) -> dict[str, np.ndarray]:
     n_batches = len(dataloader)
@@ -127,16 +122,19 @@ def eval_step(
 
             history, running_metrics = update_history(history, running_metrics, masks, preds, loss, i)
 
-            if not test_set and writer is not None:
-                global_step = epoch * n_batches + i
-                writer.add_scalar("Val/Loss", history["loss"][i], global_step)
-                writer.add_scalar("Val/Dice", history["dice"][i], global_step)
-                writer.add_scalar("Val/Hausdorff", history["hausdorff"][i], global_step)
+            if not test_set:
+                wandb.log({
+                    "Val/Loss": history["loss"][i],
+                    "Val/Dice": history["dice"][i],
+                    "Val/Hausdorff": history["hausdorff"][i],
+                })
 
                 if i == 0:
-                    writer.add_images("Val/Images", imgs, global_step)
-                    writer.add_images("Val/Masks", masks, global_step)
-                    writer.add_images("Val/Predictions", preds, global_step)
+                    wandb.log({
+                        "Val/Images": [wandb.Image(img) for img in imgs],
+                        "Val/Masks": [wandb.Image(mask) for mask in masks],
+                        "Val/Predictions": [wandb.Image(pred) for pred in preds],
+                    })
 
             progress.set_postfix({
                 "loss": f"{history["loss"][i]:.4f}",
@@ -154,9 +152,7 @@ def train(model: nn.Module):
     model_name = type(model).__name__
     model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S")
 
-    log_dir = Path(LOG_DIR) / model_name_ext
-    writer = SummaryWriter(log_dir=log_dir.as_posix())
-    print(f"Tensorboard logs at: {log_dir}")
+    wandb.run.name = model_name_ext
 
     train_set = ImageDataset(TRAIN_DIR, transforms=get_train_transforms())
     val_set = ImageDataset(VAL_DIR, transforms=get_val_transforms())
@@ -187,7 +183,6 @@ def train(model: nn.Module):
             DEVICE,
             scaler,
             epoch,
-            writer=writer,
         )
         val_hist = eval_step(
             model,
@@ -195,7 +190,6 @@ def train(model: nn.Module):
             criterion,
             DEVICE,
             epoch,
-            writer=writer
         )
 
         train_loss = train_hist["loss"][-1]
@@ -238,32 +232,26 @@ def train(model: nn.Module):
     test_hausdorff = test_hist["hausdorff"][-1]
     print(f"Test Loss: {test_loss:.4f} - Test Dice: {test_dice:.4f}")
 
-    # For some reason, the metrics dict are not being shown in tensorboard,
-    # so we moved them to the hparams dict.
-    writer.add_hparams(
-        {
-            'hparam/hp_model': model_name,
-            'hparam/hp_optimizer': type(optimizer).__name__,
-            'hparam/hp_scheduler': type(scheduler).__name__,
-            'hparam/hp_learning_rate': LEARNING_RATE,
-            'hparam/hp_batch_size': BATCH_SIZE,
-            'hparam/hp_n_epochs': N_EPOCHS,
+    wandb.log({
+        'hparam/hp_model': model_name,
+        'hparam/hp_optimizer': type(optimizer).__name__,
+        'hparam/hp_scheduler': type(scheduler).__name__,
+        'hparam/hp_learning_rate': LEARNING_RATE,
+        'hparam/hp_batch_size': BATCH_SIZE,
+        'hparam/hp_n_epochs': N_EPOCHS,
 
-            'hparam/m_train_loss': best_scores["train_loss"],
-            'hparam/m_train_dice': best_scores["train_dice"],
-            'hparam/m_train_hausdorff': best_scores["train_hausdorff"],
-            'hparam/m_val_loss': best_scores["val_loss"],
-            'hparam/m_val_dice': best_scores["val_dice"],
-            'hparam/m_val_hausdorff': best_scores["val_hausdorff"],
-            'hparam/m_test_loss': test_loss,
-            'hparam/m_test_dice': test_dice,
-            'hparam/m_test_hausdorff': test_hausdorff,
-        },
-        {}
-    )
+        'hparam/m_train_loss': best_scores["train_loss"],
+        'hparam/m_train_dice': best_scores["train_dice"],
+        'hparam/m_train_hausdorff': best_scores["train_hausdorff"],
+        'hparam/m_val_loss': best_scores["val_loss"],
+        'hparam/m_val_dice': best_scores["val_dice"],
+        'hparam/m_val_hausdorff': best_scores["val_hausdorff"],
+        'hparam/m_test_loss': test_loss,
+        'hparam/m_test_dice': test_dice,
+        'hparam/m_test_hausdorff': test_hausdorff,
+    })
 
-    writer.flush()
-    writer.close()
+    wandb.finish()
     print()
 
 

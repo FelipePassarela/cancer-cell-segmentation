@@ -14,7 +14,7 @@ from dataset.transforms import get_val_transforms
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-WANDB_PROJECT = config["WANDB_PROJECT"]
+WANDB_PROJECT = config["Training"]["WANDB_PROJECT"]
 
 
 class ImageDataset(Dataset):
@@ -61,7 +61,7 @@ def test_dataset():
     wandb.init(project=WANDB_PROJECT)
     batch_size = 100
 
-    dataset = ImageDataset(config["TRAIN_DATA_PATH"], transforms=get_val_transforms())
+    dataset = ImageDataset(config["Dirs"]["TRAIN_DIR"], transforms=get_val_transforms())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images, labels = next(iter(dataloader))

@@ -1,22 +1,20 @@
-import time
 from pathlib import Path
 from typing import Tuple
 
 import torch
 import torchvision
+import wandb
 import yaml
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.tensorboard import SummaryWriter
 from torchvision import tv_tensors
 from torchvision.io import decode_image
 
 from dataset.transforms import get_val_transforms
 
-
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-LOG_DIR = config["LOG_DIR"]
+WANDB_PROJECT = config["Training"]["WANDB_PROJECT"]
 
 
 class ImageDataset(Dataset):
@@ -60,24 +58,19 @@ class ImageDataset(Dataset):
 
 
 def test_dataset():
+    wandb.init(project=WANDB_PROJECT)
     batch_size = 100
-    log_dir = Path(LOG_DIR) / "dataset_images" / time.strftime("%d%m%Y-%H%M%S")
 
-    writer = SummaryWriter(log_dir=log_dir.as_posix())
-    dataset = ImageDataset(config["TRAIN_DATA_PATH"], transforms=get_val_transforms())
+    dataset = ImageDataset(config["Dirs"]["TRAIN_DIR"], transforms=get_val_transforms())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images, labels = next(iter(dataloader))
     features = images.view(batch_size, -1)
-    writer.add_embedding(features, label_img=images)
+    wandb.log({"embedding": wandb.Image(features)})
 
     img_grid = torchvision.utils.make_grid(images)
     mask_grid = torchvision.utils.make_grid(labels)
-    writer.add_image("images", img_grid)
-    writer.add_image("masks", mask_grid)
-
-    writer.flush()
-    writer.close()
+    wandb.log({"images": [wandb.Image(img_grid)], "masks": [wandb.Image(mask_grid)]})
 
 
 if __name__ == "__main__":

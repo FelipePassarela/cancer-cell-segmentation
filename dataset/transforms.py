@@ -4,11 +4,10 @@ import torch
 import torchvision.transforms.v2 as transforms
 import yaml
 
-
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-IMAGE_SIZE = tuple(config["IMAGE_SIZE"])
+IMAGE_SIZE = tuple(config["Training"]["IMAGE_SIZE"])
 
 
 def get_train_transforms(size: Tuple[int, int] = IMAGE_SIZE):

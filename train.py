@@ -22,16 +22,16 @@ from utils.utils import set_seed
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-N_EPOCHS = config["N_EPOCHS"]
-LEARNING_RATE = config["LEARNING_RATE"]
-BATCH_SIZE = config["BATCH_SIZE"]
-NUM_WORKERS = config["NUM_WORKERS"]
+N_EPOCHS = config["Training"]["N_EPOCHS"]
+LEARNING_RATE = config["Training"]["LEARNING_RATE"]
+BATCH_SIZE = config["Training"]["BATCH_SIZE"]
+NUM_WORKERS = config["Training"]["NUM_WORKERS"]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-TEST_DIR = config["TEST_DIR"]
-VAL_DIR = config["VAL_DIR"]
-TRAIN_DIR = config["TRAIN_DIR"]
-MODEL_SAVE_DIR = config["MODEL_SAVE_DIR"]
+TEST_DIR = config["Dirs"]["TEST_DIR"]
+VAL_DIR = config["Dirs"]["VAL_DIR"]
+TRAIN_DIR = config["Dirs"]["TRAIN_DIR"]
+MODEL_SAVE_DIR = config["Dirs"]["MODEL_SAVE_DIR"]
 WANDB_PROJECT = config["WANDB_PROJECT"]
 
 
@@ -139,7 +139,7 @@ def train(model: nn.Module):
 
     model_name = type(model).__name__
     model_name_ext = model_name + time.strftime("_%d-%m-%Y_%H-%M-%S")
-    wandb.init(project=WANDB_PROJECT, config=config, name=model_name_ext)
+    wandb.init(project=WANDB_PROJECT, config=config["Training"], name=model_name_ext)
 
     train_set = ImageDataset(TRAIN_DIR, transforms=get_train_transforms())
     val_set = ImageDataset(VAL_DIR, transforms=get_val_transforms())

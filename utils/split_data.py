@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-SEED = config["SEED"]
+SEED = config["Training"]["SEED"]
 
 
 def split_data(root: str, seed=SEED):

@@ -61,7 +61,7 @@ def test_dataset():
     wandb.init(project=WANDB_PROJECT)
     batch_size = 100
 
-    dataset = ImageDataset(config["TRAIN_DATA_PATH"], transforms=get_val_transforms())
+    dataset = ImageDataset(config["Dirs"]["TRAIN_DIR"], transforms=get_val_transforms())
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     images, labels = next(iter(dataloader))

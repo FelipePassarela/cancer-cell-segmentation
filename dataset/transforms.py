@@ -4,7 +4,6 @@ import torch
 import torchvision.transforms.v2 as transforms
 import yaml
 
-
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 

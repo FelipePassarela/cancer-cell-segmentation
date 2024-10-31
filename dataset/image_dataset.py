@@ -1,17 +1,15 @@
-import time
 from pathlib import Path
 from typing import Tuple
 
 import torch
 import torchvision
-import yaml
 import wandb
+import yaml
 from torch.utils.data import Dataset, DataLoader
 from torchvision import tv_tensors
 from torchvision.io import decode_image
 
 from dataset.transforms import get_val_transforms
-
 
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)

@@ -14,7 +14,7 @@ from dataset.transforms import get_val_transforms
 with open("config.yaml", "r") as file:
     config = yaml.safe_load(file)
 
-WANDB_PROJECT = config["Training"]["WANDB_PROJECT"]
+WANDB_PROJECT = config["WANDB_PROJECT"]
 
 
 class ImageDataset(Dataset):
